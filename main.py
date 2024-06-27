@@ -4,25 +4,34 @@ import numpy as np
 import pandas as pd
 from PIL import Image, ImageTk, ImageDraw
 
+# Constants
 ACCEPTABLE_TIME = 1
 THRESHOLD_ANGLE_CHANGE = 1.0
 THRESHOLD_DISTANCE_CHANGE = 10.0
 
+# Global variables
 last_alert_times = [time.time()] * 6
 alert_states = [''] * 6
 last_angles = [None] * 6
 last_points = None
+use_simulated_data = True
 
-window = tk.Tk()
-window.title("Angle Monitoring System")
-window.geometry("1000x500")
+# Main window for image
+image_window = tk.Tk()
+image_window.title("Angle Monitoring System - Image")
+image_window.geometry("500x500+100+100")  # Position the window at (100, 100)
+
+# Secondary window for table
+table_window = tk.Toplevel()
+table_window.title("Angle Monitoring System - Table")
+table_window.geometry("500x500+610+100")  # Position the window at (610, 100)
 
 image_path = "image.webp"
 person_image = Image.open(image_path)
 person_image = person_image.resize((400, 400))
 person_photo = ImageTk.PhotoImage(person_image)
-image_label = tk.Label(window, image=person_photo)
-image_label.pack(side=tk.LEFT, padx=20, pady=20)
+image_label = tk.Label(image_window, image=person_photo)
+image_label.pack(padx=20, pady=20)
 
 mapping_matrix = {
     "neck": [200, 60],
@@ -36,7 +45,6 @@ mapping_matrix = {
     "table": [230, 180]
 }
 
-
 def highlight_points(image, points, color):
     draw = ImageDraw.Draw(image)
     for point in points:
@@ -44,25 +52,23 @@ def highlight_points(image, points, color):
         draw.ellipse((x - 5, y - 5, x + 5, y + 5), fill=color)
     return image
 
-
 def update_image(points_of_the_body, alert_states):
     global person_image, person_photo, image_label
     person_image = Image.open(image_path)
     person_image = person_image.resize((400, 400))
 
-    if alert_states[0]:  # alpha1 out of range
+    if alert_states[0]:
         person_image = highlight_points(person_image, ["shoulder", "elbow", "hand"], 'red')
-    if alert_states[1]:  # alpha2 out of range
+    if alert_states[1]:
         person_image = highlight_points(person_image, ["heel", "knee", "hips"], 'red')
-    if alert_states[2]:  # alpha3 out of range
+    if alert_states[2]:
         person_image = highlight_points(person_image, ["toes", "heel", "knee"], 'red')
-    if alert_states[3]:  # alpha4 out of range
+    if alert_states[3]:
         person_image = highlight_points(person_image, ["shoulder", "hips", "knee"], 'red')
 
     person_photo = ImageTk.PhotoImage(person_image)
     image_label.configure(image=person_photo)
     image_label.image = person_photo
-
 
 def get_alert(value, acceptable_range, index):
     global last_alert_times, alert_states
@@ -75,7 +81,6 @@ def get_alert(value, acceptable_range, index):
     else:
         alert_states[index] = ''
         return ''
-
 
 def calculate_alpha1(points_of_the_body):
     shoulder = np.array(points_of_the_body[1])
@@ -92,7 +97,6 @@ def calculate_alpha1(points_of_the_body):
 
     return round(alpha1, 2)
 
-
 def calculate_alpha2(points_of_the_body):
     heel = np.array(points_of_the_body[6])
     knee = np.array(points_of_the_body[5])
@@ -107,7 +111,6 @@ def calculate_alpha2(points_of_the_body):
     alpha2 = np.arccos(cosine_alpha2) * (180 / np.pi)
 
     return round(alpha2, 2)
-
 
 def calculate_alpha3(points_of_the_body):
     knee = np.array(points_of_the_body[5])
@@ -124,7 +127,6 @@ def calculate_alpha3(points_of_the_body):
 
     return round(alpha3, 2)
 
-
 def calculate_alpha4(points_of_the_body):
     shoulder = np.array(points_of_the_body[1])
     hips = np.array(points_of_the_body[4])
@@ -139,7 +141,6 @@ def calculate_alpha4(points_of_the_body):
     alpha4 = np.arccos(cosine_alpha4) * (180 / np.pi)
 
     return round(alpha4, 2)
-
 
 def calculate_curvature(points_of_the_body):
     neck = np.array(points_of_the_body[0])
@@ -157,7 +158,6 @@ def calculate_curvature(points_of_the_body):
 
     return round(deviation_angle, 2)
 
-
 def calculate_angles(points_of_the_body):
     angles = [
         calculate_alpha1(points_of_the_body),
@@ -168,7 +168,6 @@ def calculate_angles(points_of_the_body):
         calculate_curvature(points_of_the_body)
     ]
     return angles
-
 
 def filter_data(new_points):
     global last_points, THRESHOLD_DISTANCE_CHANGE
@@ -186,6 +185,10 @@ def filter_data(new_points):
     last_points = filtered_points
     return filtered_points
 
+def simulate_optitrack_data():
+    new_points = np.array(points) + np.random.normal(0, 5, np.array(points).shape)
+    visualize_table(new_points, acceptable_ranges)
+    image_window.after(1000, simulate_optitrack_data)
 
 def visualize_table(points_used_to_calculate_angles, acceptable_ranges_of_the_points):
     global last_angles, THRESHOLD_ANGLE_CHANGE
@@ -193,7 +196,6 @@ def visualize_table(points_used_to_calculate_angles, acceptable_ranges_of_the_po
     filtered_points = filter_data(points_used_to_calculate_angles)
     angles = calculate_angles(filtered_points)
 
-    # Initialize last_angles if None
     if last_angles is None or None in last_angles:
         last_angles = angles
 
@@ -216,13 +218,11 @@ def visualize_table(points_used_to_calculate_angles, acceptable_ranges_of_the_po
 
     update_image(filtered_points, alert_states)
 
-    window.after(1000, visualize_table, points_used_to_calculate_angles, acceptable_ranges_of_the_points)
+# Tkinter text widget for table window
+text_widget = tk.Text(table_window, height=30, width=50)
+text_widget.pack(padx=20, pady=20)
 
-
-text_widget = tk.Text(window, height=7, width=50)
-text_widget.pack(side=tk.RIGHT, padx=20, pady=20)
-
-
+# Initial points and acceptable ranges
 points = [
     [0, 0, 95],  # neck
     [0, 0, 85],  # shoulder
@@ -234,8 +234,14 @@ points = [
     [75, 0, 56],  # toes
     [30, 0, 60]  # table
 ]
-acceptable_ranges = [[90, 90], [90, 105], [75, 90], [90, 105], [0, 5], [-30, 5]]
+acceptable_ranges = [[90, 105], [90, 105], [75, 90], [90, 105], [0, 5], [-30, 5]]
 
-visualize_table(points, acceptable_ranges)
+if use_simulated_data:
+    simulate_optitrack_data()
+else:
+    def update_with_static_data():
+        visualize_table(points, acceptable_ranges)
+        image_window.after(1000, update_with_static_data)
+    update_with_static_data()
 
-window.mainloop()
+image_window.mainloop()
