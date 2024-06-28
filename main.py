@@ -63,7 +63,7 @@ def update_image(points_of_the_body, alert_states):
         person_image = highlight_points(person_image, ["toes", "heel", "knee"], 'red')
     if alert_states[3]:
         person_image = highlight_points(person_image, ["shoulder", "hips", "knee"], 'red')
-    if alert_states[3]:
+    if alert_states[4]:
         draw = ImageDraw.Draw(person_image)
         draw.line((180, 190, 180, 230), fill='red', width=4)
     if alert_states[5]:
