@@ -3,9 +3,12 @@ import tkinter as tk
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageTk, ImageDraw
+import PythonClient
 
 ACCEPTABLE_TIME = 1
 THRESHOLD_ANGLE_CHANGE = 1
+THRESHOLD_CURVATURE_CHANGE = 1
+THRESHOLD_DELTA_H_CHANGE = 2
 THRESHOLD_DISTANCE_CHANGE = 5
 
 last_alert_times = [time.time()] * 6
@@ -40,6 +43,20 @@ mapping_matrix = {
     "toes": [245, 387],
     "table": [230, 180]
 }
+
+points = [
+    [0, 0, 95],  # neck
+    [0, 0, 85],  # shoulder
+    [10, 0, 60],  # elbow
+    [50, 0, 65],  # hand
+    [0, 0, 40],  # hips
+    [50, 0, 40],  # knee
+    [50, 0, 0],  # heel
+    [75, 0, 56],  # toes
+    [30, 0, 60]  # table
+]
+
+acceptable_ranges = [[90, 105], [90, 105], [75, 90], [90, 105], [0, 5], [60, 95]]
 
 
 def highlight_points(image, points, color):
@@ -174,10 +191,38 @@ def calculate_angles(points_of_the_body):
         calculate_alpha2(points_of_the_body),
         calculate_alpha3(points_of_the_body),
         calculate_alpha4(points_of_the_body),
-        points_of_the_body[8][2] - points_of_the_body[2][2],  # Δh
+        points_of_the_body[8][2] - points_of_the_body[2][2],  # Δh in cm
         calculate_curvature(points_of_the_body)
     ]
     return angles
+
+
+def filter_angles(angles, last_angles):
+    filtered_angles = []
+    for new, last in zip(angles, last_angles):
+        if abs(new - last) > THRESHOLD_ANGLE_CHANGE:
+            filtered_angles.append(new)
+        else:
+            filtered_angles.append(last)
+    return filtered_angles
+
+
+def filter_delta_h_and_curvature(angles, last_angles):
+    filtered_angles = []
+    for i, (new, last) in enumerate(zip(angles, last_angles)):
+        if i == 4:  # Δh
+            if abs(new - last) > THRESHOLD_DELTA_H_CHANGE:
+                filtered_angles.append(new)
+            else:
+                filtered_angles.append(last)
+        elif i == 5:  # Curvature
+            if abs(new - last) > THRESHOLD_CURVATURE_CHANGE:
+                filtered_angles.append(new)
+            else:
+                filtered_angles.append(last)
+        else:
+            filtered_angles.append(new)
+    return filtered_angles
 
 
 def filter_data(new_points):
@@ -199,8 +244,8 @@ def filter_data(new_points):
 
 def fetch_optitrack_data():
     # collected_points = optitrack_api.get_points()
-    # return np.array(collected_points) + np.random.normal(0, 5, np.array(points).shape)
-    None
+    # return np.array(collected_points)
+    pass
 
 
 def simulate_optitrack_data():
@@ -224,17 +269,19 @@ def visualize_table(points_used_to_calculate_angles, acceptable_ranges_of_the_po
     if last_angles is None or None in last_angles:
         last_angles = angles
 
+    # Filter angles to only show significant changes
+    filtered_angles = filter_angles(angles, last_angles)
+    filtered_angles = filter_delta_h_and_curvature(filtered_angles, last_angles)
+
     data = {
         'Nazwa': ['α1', 'α2', 'α3', 'α4', 'Δh', 'krzywizna'],
-        'Wartości': angles,
+        'Wartości': filtered_angles,
         'Akceptowalny zakres': acceptable_ranges_of_the_points,
         'Alert': [get_alert(value, range_, i) for i, (value, range_) in
-                  enumerate(zip(angles, acceptable_ranges_of_the_points))]
+                  enumerate(zip(filtered_angles, acceptable_ranges_of_the_points))]
     }
 
-    angle_changes = [abs(new - last) > THRESHOLD_ANGLE_CHANGE for new, last in zip(angles, last_angles)]
-    if any(angle_changes):
-        last_angles = angles
+    last_angles = angles
 
     df = pd.DataFrame(data)
 
@@ -246,19 +293,6 @@ def visualize_table(points_used_to_calculate_angles, acceptable_ranges_of_the_po
 
 text_widget = tk.Text(table_window, height=30, width=50)
 text_widget.pack(padx=20, pady=20)
-
-points = [
-    [0, 0, 95],  # neck
-    [0, 0, 85],  # shoulder
-    [10, 0, 60],  # elbow
-    [50, 0, 65],  # hand
-    [0, 0, 40],  # hips
-    [50, 0, 40],  # knee
-    [50, 0, 0],  # heel
-    [75, 0, 56],  # toes
-    [30, 0, 60]  # table
-]
-acceptable_ranges = [[90, 105], [90, 105], [75, 90], [90, 105], [0, 5], [60, 95]]
 
 if use_simulated_data:
     simulate_optitrack_data()
