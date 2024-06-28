@@ -5,8 +5,8 @@ import pandas as pd
 from PIL import Image, ImageTk, ImageDraw
 
 ACCEPTABLE_TIME = 1
-THRESHOLD_ANGLE_CHANGE = 1.0
-THRESHOLD_DISTANCE_CHANGE = 10.0
+THRESHOLD_ANGLE_CHANGE = 1
+THRESHOLD_DISTANCE_CHANGE = 5
 
 last_alert_times = [time.time()] * 6
 alert_states = [''] * 6
@@ -204,7 +204,7 @@ def fetch_optitrack_data():
 
 
 def simulate_optitrack_data():
-    new_points = np.array(points) + np.random.normal(0, 2, np.array(points).shape)
+    new_points = np.array(points) + np.random.normal(0, 1, np.array(points).shape)
     visualize_table(new_points, acceptable_ranges)
     image_window.after(50, simulate_optitrack_data)
 
