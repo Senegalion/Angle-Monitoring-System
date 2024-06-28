@@ -1,6 +1,5 @@
 import time
 import tkinter as tk
-
 import numpy as np
 import pandas as pd
 from PIL import Image, ImageTk, ImageDraw
@@ -64,6 +63,12 @@ def update_image(points_of_the_body, alert_states):
         person_image = highlight_points(person_image, ["toes", "heel", "knee"], 'red')
     if alert_states[3]:
         person_image = highlight_points(person_image, ["shoulder", "hips", "knee"], 'red')
+    if alert_states[3]:
+        draw = ImageDraw.Draw(person_image)
+        draw.line((180, 190, 180, 230), fill='red', width=4)
+    if alert_states[5]:
+        draw = ImageDraw.Draw(person_image)
+        draw.line((50, 100, 50, 280), fill='red', width=4)
 
     person_photo = ImageTk.PhotoImage(person_image)
     image_label.configure(image=person_photo)
@@ -152,16 +157,15 @@ def calculate_curvature(points_of_the_body):
     shoulder = np.array(points_of_the_body[1])
     hips = np.array(points_of_the_body[4])
 
-    collinear = np.allclose(0, np.cross(shoulder - neck, hips - neck))
+    vector_shoulder_neck = neck - shoulder
+    vector_shoulder_hips = hips - shoulder
 
-    if not collinear:
-        deviation_angle = 90
-        return deviation_angle
+    cosine_curvature = np.dot(vector_shoulder_neck, vector_shoulder_hips) / (
+            np.linalg.norm(vector_shoulder_neck) * np.linalg.norm(vector_shoulder_hips))
 
-    vector_hips_shoulder = shoulder - hips
-    deviation_angle = np.arctan2(vector_hips_shoulder[1], vector_hips_shoulder[0]) * (180 / np.pi)
+    curvature = np.arccos(cosine_curvature) * (180 / np.pi)
 
-    return round(deviation_angle, 2)
+    return round(curvature, 2)
 
 
 def calculate_angles(points_of_the_body):
@@ -193,10 +197,22 @@ def filter_data(new_points):
     return filtered_points
 
 
+def fetch_optitrack_data():
+    # collected_points = optitrack_api.get_points()
+    # return np.array(collected_points) + np.random.normal(0, 5, np.array(points).shape)
+    None
+
+
 def simulate_optitrack_data():
-    new_points = np.array(points) + np.random.normal(0, 5, np.array(points).shape)
+    new_points = np.array(points) + np.random.normal(0, 2, np.array(points).shape)
     visualize_table(new_points, acceptable_ranges)
-    image_window.after(1000, simulate_optitrack_data)
+    image_window.after(50, simulate_optitrack_data)
+
+
+def update_from_optitrack():
+    new_points = fetch_optitrack_data()
+    visualize_table(new_points, acceptable_ranges)
+    image_window.after(50, update_from_optitrack)
 
 
 def visualize_table(points_used_to_calculate_angles, acceptable_ranges_of_the_points):
@@ -242,16 +258,11 @@ points = [
     [75, 0, 56],  # toes
     [30, 0, 60]  # table
 ]
-acceptable_ranges = [[90, 105], [90, 105], [75, 90], [90, 105], [0, 5], [-30, 5]]
+acceptable_ranges = [[90, 105], [90, 105], [75, 90], [90, 105], [0, 5], [60, 95]]
 
 if use_simulated_data:
     simulate_optitrack_data()
 else:
-    def update_with_static_data():
-        visualize_table(points, acceptable_ranges)
-        image_window.after(1000, update_with_static_data)
-
-
-    update_with_static_data()
+    update_from_optitrack()
 
 image_window.mainloop()
